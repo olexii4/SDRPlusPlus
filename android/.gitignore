@@ -7,6 +7,3 @@ build/
 .gradle
 local.properties
 
-# Android Studio puts a Gradle wrapper here, that we don't want:
-gradle/
-gradlew*

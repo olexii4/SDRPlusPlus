@@ -60,11 +60,9 @@ public:
 
 private:
     void doStart() {
-        // Create stream builder
         AAudioStreamBuilder *builder;
         aaudio_result_t result = AAudio_createStreamBuilder(&builder);
 
-        // Set stream options
         bufferSize = round(sampleRate / 60.0);
         AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_OUTPUT);
         AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
@@ -74,18 +72,14 @@ private:
         AAudioStreamBuilder_setBufferCapacityInFrames(builder, bufferSize);
         AAudioStreamBuilder_setErrorCallback(builder, errorCallback, this);
         packer.setSampleCount(bufferSize);
-        
-        // Open the stream
+
         AAudioStreamBuilder_openStream(builder, &stream);
 
-        // Stream stream and packer
         packer.start();
         AAudioStream_requestStart(stream);
 
-        // We no longer need the builder
         AAudioStreamBuilder_delete(builder);
 
-        // Start worker thread
         workerThread = std::thread(&AudioSink::worker, this);
     }
 

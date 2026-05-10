@@ -457,6 +457,16 @@ namespace backend {
         { 0x1f4d, 0xd286 },
         { 0x1f4d, 0xd803 }
     };
+
+    const std::vector<DevVIDPID> MIRISDR_VIDPIDS = {
+        { 0x1df7, 0x2500 },  // Mirics MSi2500 / RSP1C
+        { 0x1df7, 0x3000 },  // SDRplay RSP1A
+        { 0x1df7, 0x3010 },  // SDRplay RSP2
+        { 0x2040, 0xd300 },  // Hauppauge WinTV
+        { 0x07ca, 0x8591 },  // AverMedia A859
+        { 0x04bb, 0x0537 },  // IO-DATA GV-TV100
+        { 0x0511, 0x0037 },  // Logitec LDT-1S310U/J
+    };
 }
 
 extern "C" {

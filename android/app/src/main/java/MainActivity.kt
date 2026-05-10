@@ -1,13 +1,11 @@
 package org.sdrpp.sdrpp;
 
 import android.app.NativeActivity;
-import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.hardware.usb.*;
 import android.Manifest;
@@ -19,7 +17,6 @@ import android.util.Log;
 import android.content.res.AssetManager;
 
 import androidx.core.app.ActivityCompat;
-
 import androidx.core.content.PermissionChecker;
 
 import java.util.concurrent.LinkedBlockingQueue;
@@ -31,22 +28,27 @@ private val usbReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (ACTION_USB_PERMISSION == intent.action) {
             synchronized(this) {
-                var _this = context as MainActivity;
-                _this.SDR_device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    _this.SDR_conn = _this.usbManager!!.openDevice(_this.SDR_device);
-                    
-                    // Save SDR info
-                    _this.SDR_VID = _this.SDR_device!!.getVendorId();
-                    _this.SDR_PID = _this.SDR_device!!.getProductId()
-                    _this.SDR_FD = _this.SDR_conn!!.getFileDescriptor();
-                }
-                
-                // Whatever the hell this does
-                context.unregisterReceiver(this);
+                val _this = context as MainActivity
+                val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                Log.i("SDR++", "USB permission result: granted=$granted device=$device")
 
-                // Hide again the system bars
-                _this.hideSystemBars();
+                if (granted && device != null) {
+                    val conn = _this.usbManager!!.openDevice(device)
+                    if (conn != null) {
+                        _this.SDR_device = device
+                        _this.SDR_conn   = conn
+                        _this.SDR_VID    = device.vendorId
+                        _this.SDR_PID    = device.productId
+                        _this.SDR_FD     = conn.fileDescriptor
+                        Log.i("SDR++", "USB device opened: VID=${String.format("%04x", _this.SDR_VID)} PID=${String.format("%04x", _this.SDR_PID)} FD=${_this.SDR_FD}")
+                    } else {
+                        Log.e("SDR++", "Failed to open USB device")
+                    }
+                }
+
+                context.unregisterReceiver(this)
+                _this.hideSystemBars()
             }
         }
     }
@@ -74,35 +76,33 @@ class MainActivity : NativeActivity() {
     }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
-        // Hide bars
         hideSystemBars();
 
-        // Ask for required permissions, without these the app cannot run.
         checkAndAsk(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         checkAndAsk(Manifest.permission.READ_EXTERNAL_STORAGE);
 
-        // TODO: Have the main code wait until these two permissions are available
-
-        // Register events
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager;
-        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), 0)
+        val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_MUTABLE)
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        registerReceiver(usbReceiver, filter)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(usbReceiver, filter)
+        }
 
-        // Get permission for all USB devices
         val devList = usbManager!!.getDeviceList();
+        Log.i(TAG, "USB devices found: ${devList.size}")
         for ((name, dev) in devList) {
+            Log.i(TAG, "USB device: $name VID=${String.format("%04x", dev.vendorId)} PID=${String.format("%04x", dev.productId)}")
             usbManager!!.requestPermission(dev, permissionIntent);
         }
 
-        // Ask for internet permission
         checkAndAsk(Manifest.permission.INTERNET);
 
         super.onCreate(savedInstanceState)
     }
 
     public override fun onResume() {
-        // Hide bars again
         hideSystemBars();
         super.onResume();
     }
@@ -118,11 +118,8 @@ class MainActivity : NativeActivity() {
         hideSystemBars();
     }
 
-    // Queue for the Unicode characters to be polled from native code (via pollUnicodeChar())
     private var unicodeCharacterQueue: LinkedBlockingQueue<Int> = LinkedBlockingQueue()
 
-    // We assume dispatchKeyEvent() of the NativeActivity is actually called for every
-    // KeyEvent and not consumed by any View before it reaches here
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             unicodeCharacterQueue.offer(event.getUnicodeChar(event.metaState))
@@ -135,35 +132,23 @@ class MainActivity : NativeActivity() {
     }
 
     public fun createIfDoesntExist(path: String) {
-        // This is a directory, create it in the filesystem
         var folder = File(path);
-        var success = true;
         if (!folder.exists()) {
-            success = folder.mkdirs();
-        }
-        if (!success) {
-            Log.e(TAG, "Could not create folder with path " + path);
+            if (!folder.mkdirs()) {
+                Log.e(TAG, "Could not create folder: $path");
+            }
         }
     }
 
     public fun extractDir(aman: AssetManager, local: String, rsrc: String): Int {
-        val flist = aman.list(rsrc);
+        val flist = aman.list(rsrc) ?: return 0;
         var ecount = 0;
         for (fp in flist) {
             val lpath = local + "/" + fp;
             val rpath = rsrc + "/" + fp;
-
-            Log.w(TAG, "Extracting '" + rpath + "' to '" + lpath + "'");
-
-            // Create local path if non-existent
             createIfDoesntExist(local);
-            
-            // Create if directory
             val ext = extractDir(aman, lpath, rpath);
-
-            // Extract if file
             if (ext == 0) {
-                // This is a file, extract it
                 val _os = FileOutputStream(lpath);
                 val _is = aman.open(rpath);
                 val ilen = _is.available();
@@ -173,7 +158,6 @@ class MainActivity : NativeActivity() {
                 _os.close();
                 _is.close();
             }
-
             ecount++;
         }
         return ecount;
@@ -181,12 +165,9 @@ class MainActivity : NativeActivity() {
 
     public fun getAppDir(): String {
         val fdir = getFilesDir().getAbsolutePath();
-
-        // Extract all resources to the app directory
         val aman = getAssets();
         extractDir(aman, fdir + "/res", "res");
         createIfDoesntExist(fdir + "/modules");
-
         return fdir;
     }
 }

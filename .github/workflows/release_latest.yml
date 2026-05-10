@@ -1,0 +1,132 @@
+name: Release Latest
+
+on:
+    push:
+        branches:
+        - master
+
+env:
+    BUILD_TYPE: Release
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+    build_macos_arm:
+        runs-on: macos-15
+
+        steps:
+        - uses: actions/checkout@v4
+
+        - name: Create Build Environment
+          run: cmake -E make_directory ${{runner.workspace}}/build
+
+        - name: Install dependencies
+          run: brew install pkg-config libusb fftw glfw airspy airspyhf portaudio hackrf libbladerf codec2 zstd autoconf automake libtool spdlog && pip3 install mako --break-system-packages
+
+        - name: Install volk
+          run: git clone --recursive https://github.com/gnuradio/volk && cd volk && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
+
+        - name: Install libiio
+          run: wget https://github.com/analogdevicesinc/libiio/archive/refs/tags/v0.25.zip && 7z x v0.25.zip && cd libiio-0.25 && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
+
+        - name: Install libad9361
+          run: git clone https://github.com/analogdevicesinc/libad9361-iio && cd libad9361-iio && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. && make -j3 && sudo make install && cd ../../
+
+        - name: Install librfnm
+          run: git clone https://github.com/AlexandreRouma/librfnm && cd librfnm && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make && sudo make install && cd ..
+
+        - name: Install libfobos
+          run: git clone https://github.com/AlexandreRouma/libfobos && cd libfobos && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make && sudo make install && cd ..
+
+        - name: Install more recent librtlsdr
+          run: git clone https://github.com/osmocom/rtl-sdr && cd rtl-sdr && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 LIBRARY_PATH=$(pkg-config --libs-only-L libusb-1.0 | sed 's/\-L//') && sudo make install && cd ../../
+
+        - name: Install libhydrasdr
+          run: git clone https://github.com/hydrasdr/rfone_host && cd rfone_host && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
+
+        - name: Prepare CMake
+          working-directory: ${{runner.workspace}}/build
+          run: >
+            cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+            $GITHUB_WORKSPACE
+            -DOPT_BUILD_MIRISDR_SOURCE=ON
+            -DOPT_BUILD_PLUTOSDR_SOURCE=ON
+            -DOPT_BUILD_BLADERF_SOURCE=ON
+            -DOPT_BUILD_RFNM_SOURCE=ON
+            -DOPT_BUILD_FOBOSSDR_SOURCE=ON
+            -DOPT_BUILD_HYDRASDR_SOURCE=ON
+            -DOPT_BUILD_AUDIO_SINK=OFF
+            -DOPT_BUILD_PORTAUDIO_SINK=ON
+            -DOPT_BUILD_NEW_PORTAUDIO_SINK=ON
+            -DOPT_BUILD_AUDIO_SOURCE=OFF
+            -DUSE_BUNDLE_DEFAULTS=ON
+            -DCMAKE_BUILD_TYPE=Release
+
+        - name: Build
+          working-directory: ${{runner.workspace}}/build
+          run: make -j3
+
+        - name: Create App Bundle
+          run: cd $GITHUB_WORKSPACE && sh make_macos_bundle.sh ${{runner.workspace}}/build ./SDR++.app && zip -r ${{runner.workspace}}/sdrpp_macos_arm.zip SDR++.app
+
+        - name: Upload artifact
+          uses: actions/upload-artifact@v4
+          with:
+              name: sdrpp_macos_arm
+              path: ${{runner.workspace}}/sdrpp_macos_arm.zip
+
+    build_android:
+        runs-on: ubuntu-latest
+
+        steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up JDK 17
+          uses: actions/setup-java@v4
+          with:
+              java-version: '17'
+              distribution: 'temurin'
+
+        - name: Set up Android SDK
+          uses: android-actions/setup-android@v3
+
+        - name: Build APK
+          run: cd android && ./gradlew assembleDebug
+
+        - name: Upload artifact
+          uses: actions/upload-artifact@v4
+          with:
+              name: sdrpp_android
+              path: android/app/build/outputs/apk/debug/app-debug.apk
+
+    publish_latest_release:
+        needs: [build_macos_arm, build_android]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+        - uses: actions/checkout@v4
+
+        - name: Download artifacts
+          uses: actions/download-artifact@v4
+          with:
+              path: release_assets
+
+        - name: Update latest tag
+          run: |
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git tag -f latest
+              git push origin latest --force
+
+        - name: Create or update latest release
+          env:
+              COMMIT_SHA: ${{ github.sha }}
+          run: |
+              gh release delete latest --yes 2>/dev/null || true
+              gh release create latest \
+                --title "Latest Build" \
+                --notes "Automatically published from the latest commit on \`master\`. Built from commit \`${COMMIT_SHA}\`." \
+                --prerelease \
+                release_assets/sdrpp_macos_arm/sdrpp_macos_arm.zip \
+                release_assets/sdrpp_android/app-debug.apk

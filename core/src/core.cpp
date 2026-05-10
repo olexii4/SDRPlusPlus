@@ -187,6 +187,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["moduleInstances"]["HydraSDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["LimeSDR Source"]["module"] = "limesdr_source";
     defConfig["moduleInstances"]["LimeSDR Source"]["enabled"] = true;
+    defConfig["moduleInstances"]["MSI-SDR Source"]["module"] = "mirisdr_source";
+    defConfig["moduleInstances"]["MSI-SDR Source"]["enabled"] = true;
     defConfig["moduleInstances"]["Network Source"]["module"] = "network_source";
     defConfig["moduleInstances"]["Network Source"]["enabled"] = true;
     defConfig["moduleInstances"]["PerseusSDR Source"]["module"] = "perseus_source";
@@ -199,8 +201,8 @@ int sdrpp_main(int argc, char* argv[]) {
     defConfig["moduleInstances"]["RFspace Source"]["enabled"] = true;
     defConfig["moduleInstances"]["RTL-SDR Source"]["module"] = "rtl_sdr_source";
     defConfig["moduleInstances"]["RTL-SDR Source"]["enabled"] = true;
-    defConfig["moduleInstances"]["RTL-TCP Source"]["module"] = "rtl_tcp_source";
-    defConfig["moduleInstances"]["RTL-TCP Source"]["enabled"] = true;
+    defConfig["moduleInstances"]["MSI-TCP Source"]["module"] = "rtl_tcp_source";
+    defConfig["moduleInstances"]["MSI-TCP Source"]["enabled"] = true;
     defConfig["moduleInstances"]["SDRplay Source"]["module"] = "sdrplay_source";
     defConfig["moduleInstances"]["SDRplay Source"]["enabled"] = true;
     defConfig["moduleInstances"]["SDR++ Server Source"]["module"] = "sdrpp_server_source";
@@ -295,23 +297,11 @@ int sdrpp_main(int argc, char* argv[]) {
     int modCount = 0;
     core::configManager.conf["modules"] = json::array();
 
-    core::configManager.conf["modules"][modCount++] = "airspy_source.so";
-    core::configManager.conf["modules"][modCount++] = "airspyhf_source.so";
-    core::configManager.conf["modules"][modCount++] = "hackrf_source.so";
-    core::configManager.conf["modules"][modCount++] = "hermes_source.so";
-    core::configManager.conf["modules"][modCount++] = "hydrasdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "plutosdr_source.so";
-    core::configManager.conf["modules"][modCount++] = "rfspace_source.so";
-    core::configManager.conf["modules"][modCount++] = "rtl_sdr_source.so";
     core::configManager.conf["modules"][modCount++] = "rtl_tcp_source.so";
-    core::configManager.conf["modules"][modCount++] = "sdrpp_server_source.so";
-    core::configManager.conf["modules"][modCount++] = "spyserver_source.so";
+    core::configManager.conf["modules"][modCount++] = "mirisdr_source.so";
 
-    core::configManager.conf["modules"][modCount++] = "network_sink.so";
     core::configManager.conf["modules"][modCount++] = "audio_sink.so";
 
-    core::configManager.conf["modules"][modCount++] = "m17_decoder.so";
-    core::configManager.conf["modules"][modCount++] = "meteor_demodulator.so";
     core::configManager.conf["modules"][modCount++] = "radio.so";
 
     core::configManager.conf["modules"][modCount++] = "frequency_manager.so";

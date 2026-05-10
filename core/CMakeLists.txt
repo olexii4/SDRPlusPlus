@@ -102,15 +102,16 @@ if (MSVC)
     find_package(zstd CONFIG REQUIRED)
     target_link_libraries(sdrpp_core PUBLIC zstd::libzstd_shared)
 elseif (ANDROID)
+    set(SDR_KIT_DIR "${CMAKE_SOURCE_DIR}/sdr-kit/${ANDROID_ABI}")
     target_include_directories(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/include
+        ${SDR_KIT_DIR}/include
         ${ANDROID_NDK}/sources/android/native_app_glue
     )
 
     target_link_libraries(sdrpp_core PUBLIC
-        /sdr-kit/${ANDROID_ABI}/lib/libvolk.so
-        /sdr-kit/${ANDROID_ABI}/lib/libfftw3f.so
-        /sdr-kit/${ANDROID_ABI}/lib/libzstd.so
+        ${SDR_KIT_DIR}/lib/libvolk.so
+        ${SDR_KIT_DIR}/lib/libfftw3f.so
+        ${SDR_KIT_DIR}/lib/libzstd.so
         android
         EGL
         GLESv3

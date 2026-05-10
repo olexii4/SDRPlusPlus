@@ -90,12 +90,12 @@ public:
         handler.stopHandler = stop;
         handler.tuneHandler = tune;
         handler.stream = &stream;
-        sigpath::sourceManager.registerSource("RTL-TCP", &handler);
+        sigpath::sourceManager.registerSource("MSI-TCP", &handler);
     }
 
     ~RTLTCPSourceModule() {
         stop(this);
-        sigpath::sourceManager.unregisterSource("RTL-TCP");
+        sigpath::sourceManager.unregisterSource("MSI-TCP");
     }
 
     void postInit() {}
@@ -294,7 +294,7 @@ private:
     double freq;
 
     char ip[1024] = "localhost";
-    int port = 1234;
+    int port = 14423;
     int srId = 0;
     int directSamplingId = 0;
     int ppm = 0;

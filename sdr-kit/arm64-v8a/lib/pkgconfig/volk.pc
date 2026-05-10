@@ -1,0 +1,13 @@
+prefix=/Users/oleksiiorel/workspace/olexii4/SDRPlusPlus/sdr-kit/arm64-v8a
+exec_prefix=/Users/oleksiiorel/workspace/olexii4/SDRPlusPlus/sdr-kit/arm64-v8a
+libdir=/Users/oleksiiorel/workspace/olexii4/SDRPlusPlus/sdr-kit/arm64-v8a/lib
+includedir=/Users/oleksiiorel/workspace/olexii4/SDRPlusPlus/sdr-kit/arm64-v8a/include
+LV_CXXFLAGS=
+
+
+Name: volk
+Description: VOLK: Vector Optimized Library of Kernels
+Requires:
+Version: 3.3
+Libs: -L${libdir} -lvolk
+Cflags: -I${includedir} ${LV_CXXFLAGS}
